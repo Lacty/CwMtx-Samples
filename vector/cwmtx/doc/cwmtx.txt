@@ -1,0 +1,1463 @@
+==============================================================================
+Documentation of CwMtx Matrix and Vector math template library.  This is not a
+tutorial on matrix or quaternion operations just a short description of the
+classes contained in the library.
+
+Original author: Harry Kuiper
+Email          : hkuiper@xs4all.nl
+
+Purpose : This template library provides the matrix and vector operations that
+          are used extensively in engineering and science problems.
+
+IMPORTANT: The types used to instantiate the templates in this library need
+           not be scalar.  It can be any type that can be treated
+           (mathematically) in the same way as a scalar.
+
+
+==============================================================================
+Class hierarchy
+
+                                   +---------+
+                                   |CWTMatrix|
+                                   +----+----+
+                                       -+-
+                                        |
+                                +-------+-------+
+                                |               |
+                           +----+----+    +-----+---------+
+                           |CWTVector|    |CWTSquareMatrix|
+                           +----+----+    +---------------+
+                               -+-
+                                |
+                      +---------+--------+
+                      |                  |
+                +-----+--------+   +-----+-------+
+                |CWTSpaceVector|   |CWTQuaternion|
+                +--------------+   +-------------+
+
+
+==============================================================================
+Header file: "cwmtx.h"
+
+Description
+
+   This header file includes all template classes of the library. It also
+   contains typedefs that establish compatibility with older (non-template)
+   versions of the library.
+
+   namespace CwMtx
+   {
+     typedef CWTMatrix<> CWMatrix;
+     typedef CWTVector<> CWVector;
+     typedef CWTSpaceVector<> CWSpaceVector;
+     typedef CWTSquareMatrix<> CWSquareMatrix;
+     typedef CWTQuaternion<> CWQuaternion;
+   }
+
+
+==============================================================================
+template <class T = double> class CWTMatrix
+
+Header file: "matrix.h"
+
+Description
+
+   Template class CWTMatrix provides a mathematical matrix with parameterised
+   elements.  It provides the matrix operations that are used extensively in
+   engineering and science.  The default element type for this template is
+   double.
+
+Public Type Definitions
+
+   enum { N_NOTALLOCATED, N_ALLOCATED, N_MAPPED };
+
+      Enumeration of legal matrix states.  Used by CWTMatrix memory allocation
+      routines and initialisation.
+
+      N_NOTALLOCATED = CWTMatrix is empty, no rows or columns are allocated.
+
+      N_ALLOCATED = CWTMatrix has rows and columns.
+
+      N_MAPPED = CWTMatrix is mapped into another matrix.  It has no rows and
+                 columns of its own.  It refers to parts of the rows and
+                 columns of another matrix.
+
+
+Public Constructors
+
+   CWTMatrix();
+
+      Default constructor.  Creates a matrix in N_NOTALLOCATED status.  It
+      does *NOT* allocate rows and columns.
+
+
+   CWTMatrix(unsigned crow, unsigned ccol);
+
+      Creates a matrix in N_ALLOCATED status, allocates crow rows and ccol
+      columns.
+
+
+   CWTMatrix(const CWTMatrix<T> &); 
+
+      Copy constructor.  Creates a copy of the argument matrix.  If the
+      argument matrix has status N_NOTALLOCATED the copy will be
+      N_NOTALLOCATED too.  If the argument matrix has status N_ALLOCATED the
+      copy will be N_ALLOCATED too.  If the argument matrix has status
+      N_MAPPED the copy will be N_ALLOCATED instead, so it does *NOT* perform
+      a shallow copy.  In all cases the values of the elements of the copy
+      will equal those of the original.
+
+
+   CWTMatrix(const CWTMatrix<T> &mat,
+             unsigned irowStart,
+             unsigned icolStart,
+             unsigned irowEnd,
+	     unsigned icolEnd);
+
+      Creates a matrix in N_MAPPED status.  I.e. a sub-matrix mapped into the
+      argument matrix from element mat[irowStart][icolStart] in the
+      "upper-left corner" to mat[irowEnd][icolEnd] in the "lower-right
+      corner".
+
+
+Public Destructors
+
+   ~CWTMatrix();
+
+      Destroys a matrix object.  If the matrix has status N_NOTALLOCATED it
+      only destroys itself.  If the matrix has status N_ALLOCATED it destroys
+      its rows and columns first.  If the matrix has status N_MAPPED it only
+      destroys itself and it does *NOT* deallocate the rows and columns of the
+      matrix it was mapped into.
+
+
+Public Member Functions
+
+   void dimension(unsigned crow, unsigned ccol);
+
+      Allocates crow rows and ccol columns.  Deallocates existing rows and
+      columns first if necessary.  If the matrix has status N_MAPPED it does
+      *NOT* deallocate the rows and columns of the matrix it is mapped into it
+      only deallocates its own data structures used for the mapping.
+
+   void mapInto(const CWTMatrix<T> &mat,
+                unsigned irowStart,
+		unsigned icolStart,
+		unsigned irowEnd,
+		unsigned icolEnd);
+
+      Maps matrix into another matrix from element mat[irowStart][icolStart]
+      in the "upper left corner" to mat[irowEnd][icolEnd] in the "lower right
+      corner".  Deallocates existing rows and columns first.
+
+
+   void deallocate();
+
+      Reverses the effects of calls to constructors, dimension(..) and
+      mapInto(..).  After a call to deallocate() the matrix always has status
+      N_NOTALLOCATED.
+
+
+   int getStatus();
+
+      Return the current value of the matrix' status.
+
+
+   unsigned getRows();
+
+      Returns the current number of rows in a matrix.
+
+
+   unsigned getCols();
+
+      Returns the current number of columns in a matrix.
+
+   void storeSum(const CWTMatrix<T> &, const CWTMatrix<T> &);
+
+      Stores the sum of two matrices in the destination matrix.  The
+      destination matrix must be the right size to accommodate the resulting
+      matrix.  This function is provided for situations where using
+      operator+() causes too much overhead because it has to construct a new
+      result matrix each time it is called.  This can be important when large
+      matrices are involved.
+
+
+   void storeProduct(const CWTMatrix<T> &, const CWTMatrix<T> &);
+
+      Stores the product of two matrices in the destination matrix.  The
+      destination matrix must be the right size to accommodate the resulting
+      matrix.  This function is provided for situations where using
+      operator*() causes too much overhead because it has to construct a new
+      result matrix each time it is called.  This can be important when large
+      matrices are involved.
+
+
+   void storeTranspose(const CWTMatrix<T> &);
+
+      Stores the transpose of argument matrix in the destination matrix.  This
+      function is provided for situations where using transpose(mat) causes too
+      much overhead because it has to construct a new result matrix each time
+      it is called.  Usually this situation arises when large matrices are
+      involved.
+
+
+   void storeAtPosition(unsigned irowStart,
+                        unsigned icolStart,
+			CWTMatrix<T> &mat);
+
+      Stores mat at the position in the destination matrix indicated by "upper
+      left corner" irowStart and icolStart.
+
+
+   void fill(T elemValue);
+
+      Fills the whole destination matrix with the same value.
+
+
+   void interchangeRows(unsigned irow1, unsigned irow2);
+
+      Interchanges rows irow1 and irow2 in the destination matrix.
+
+
+   void addRowToRow(unsigned irowSrc, unsigned irowDest, T val = 1);
+
+      Multiplies row irowSrc by value val and adds the result to row irowDest.
+      NOTE: The type of argument val may be any type for which a unity element
+      exists that can be constructed from 1.
+
+
+   void multiplyRow(unsigned irow, T val);
+
+      Multiplies row irow by "scalar" value.
+
+
+Operators
+
+   T* operator [](unsigned irow);
+
+      Subscript operator.  Returns the row of elements at index irow from the
+      matrix it is applied to.  Since a row is defined as an array of
+      elements, the standard operator[] for type T can be applied to a row to
+      select an element from it.  This operator does *NOT* perform bounds
+      checking.
+
+
+   const T* operator [](unsigned irow) const;
+
+      Returns a row of const elements from a const matrix.  See above for
+      details.
+
+
+   CWTMatrix<T> operator +(const CWTMatrix<T> &) const;
+
+      Matrix addition.
+
+
+   CWTMatrix<T> operator -(const CWTMatrix<T> &) const;
+
+      Matrix subtraction.
+
+
+   CWTMatrix<T> operator -() const;
+
+      Returns a matrix of which the sign of of each element is opposed to the
+      elements in the matrix the operator is applied to.
+
+
+   CWTMatrix<T> operator *(T val) const;
+
+      Matrix "scalar" multiplication matrix*val.  NOTE: The type of argument
+      val need not be scalar.  It may be any type for which an operator*(..)
+      is defined.
+
+
+   CWTMatrix<T> operator *(const CWTMatrix<T> &) const;
+
+      Matrix multiplication.
+
+
+   CWTMatrix<T> operator /(T val) const;
+
+      Matrix "scalar" division (multiplies all elements by 1/val).  NOTE:
+      The type of argument val need not be scalar.  It may be any type for
+      which an operator/(..)  is defined and for which a unity element exists
+      that can be constructed from 1.
+
+
+   CWTMatrix<T> & operator =(const CWTMatrix<T> &);
+
+      Matrix assignment.  If the destination matrix has status N_NOTALLOCATED
+      it will be dimensioned automatically to fit the size of the source
+      matrix.  Otherwise the matrix should be large enough to hold a copy of
+      the source matrix.  (Not inherited.)
+
+
+   CWTMatrix<T> & operator +=(const CWTMatrix<T> &);
+
+      Compound matrix addition and assignment.
+
+
+   CWTMatrix<T> & operator -=(const CWTMatrix<T> &);
+
+      Compound matrix subtraction and assignment.
+
+
+   CWTMatrix<T> & operator *=(T val);
+
+      Compound matrix "scalar" multiplication and assignment.  See NOTE with
+      operator*(..).
+
+
+   CWTMatrix<T> & operator /=(T val);
+
+      Compound matrix "scalar" division and assignment.See NOTE with
+      operator/(..).
+
+
+   int operator ==(const CWTMatrix<T> &) const;
+
+      Matrix comparison.  Returns nonzero if all pairs of corresponding
+      elements in both matrices have the same value.  Otherwise returns zero.
+
+
+   int operator !=(const CWTMatrix<T> &mat) const;
+
+      Matrix comparison.  Returns nonzero if at least one of the pairs of
+      corresponding elements in both matrices do not have the same value.
+      Otherwise returns zero.
+
+
+Private Member Functions
+
+   void initialize();
+
+      Called during construction.  Initialises the matrix' data members to
+      values consistent with the N_NOTALLOCATED status.
+
+
+Private Data Members
+
+   unsigned m_crow;
+
+      Row counter.
+
+
+   unsigned m_ccol;
+
+      Column counter.
+
+
+   T **m_rgrow;
+
+      Pointer to an array of pointers to T. Each pointer in the array points
+      to the start of a row that contains elements of the matrix (stored on
+      free store).
+
+
+   int m_nMatStatus;
+
+      Matrix status.
+
+
+Related Global Functions and Operators
+
+   CWTMatrix<T> operator *(T val, const CWTMatrix<T> &)
+
+      Matrix "scalar" mutiplication operator val*matrix.
+
+
+   CWTMatrix<T> transpose(const CWTMatrix<T> &);
+
+      Returns a matrix that is the transpose of the argument matrix.
+
+
+   ostream & operator <<(ostream &os, const CWTMatrix<T>& mtx);
+
+      Insert operator that writes the elements of the matrix to a stream
+      enclosed in square brackets in row-by-row fashion separated by commas
+      and semicolons where the semicolons indicate the end of a row. This
+      output format is compatible with Octave and Matlab.
+
+
+==============================================================================
+template <class T = double> CWTSquareMatrix
+
+Header file "smatrix.h"
+
+Description
+
+   Class CWTSquareMatrix provides a mathematical square matrix with
+   parameterised elements.  It provides most of the square matrix operations
+   that are used extensively in engineering and science.  The default element
+   type for this template is double.
+
+
+Base Classes
+
+   public CWTMatrix<T>
+
+
+Public Constructors
+
+   CWTSquareMatrix();
+
+      Default constructor.  Constructs a square matrix in N_NOTALLOCATED
+      status.
+
+
+   CWTSquareMatrix(unsigned crowInit);
+
+      Constructs a square matrix in N_ALLOCATED status.  Allocates crowInit
+      rows and crowInit columns.
+
+
+   CWTSquareMatrix(const CWTMatrix<T> &mat);
+
+      Constructs a square matrix from a copy of the argument matrix.  See
+      CWTMatrix copy constructor for more details.
+
+      NOTE: The argument matrix should have an equal number of rows and
+            columns.  Otherwise runtime errors can occur caused by the
+            resulting "square" matrix not being square.
+
+
+   CWTSquareMatrix(const CWTSquareMatrix<T> &smat);
+
+      Copy constructor.  See CWTMatrix copy constructor for more details.
+
+
+   CWTSquareMatrix(
+      const CWTMatrix<T> &mat,
+      unsigned irowStart,
+      unsigned icolStart,
+      unsigned irowEnd);
+
+      Constructs a square matrix in N_MAPPED status.  The resulting square
+      matrix is mapped into the ordinary matrix provided as argument.  Element
+      mat[irowStart][icolStart] is taken as "upper-left corner" the mapping
+      runs down from there to row irowEnd and an equal number of columns to
+      the right.  Deallocates existing rows and columns first or unmaps first
+      if needed.
+
+
+   CWTSquareMatrix(const CWTSquareMatrix<T> &smat,
+                   unsigned irowStart,
+		   unsigned icolStart,
+		   unsigned irowEnd);
+
+      Same as above only maps new square matrix into another square matrix.
+
+
+Public Destructors
+
+   ~CWTSquareMatrix();
+
+      Destroys a square matrix object.  See ~CWTMatrix() for more details.
+
+
+Public Member Functions
+
+   void dimension(unsigned crowInit);
+
+      Dimensions a square matrix at crowInit rows and crowInit columns.  See
+      CWTMatrix<T>::dimension(..) for details.
+
+      NOTE: Since CWTSquareMatrix is derived from CWTMatrix,
+            CWTMatrix<T>::dimension(rows, cols) can be called for a
+            CWTSquareMatrix as well, possibly creating a square matrix that is
+            not square!  This should be avoided since it can lead to runtime
+            errors.
+
+
+   void mapInto(
+      const CWTSquareMatrix<T> &smat,
+      unsigned irowStart,
+      unsigned icolStart,
+      unsigned irowEnd);
+
+      Maps a square matrix into another square matrix.  The resulting mapping
+      is identical to the result of the mapping constructor.  Deallocates
+      existing rows and columns first if needed.
+
+
+   void storeAdjoint(const CWTSquareMatrix<T> &);
+
+      Stores the adjoint of argument matrix in the destination matrix.  The
+      sizes of argument matrix and destination matrix should match.  This
+      function is provided for situations where using adj(qtn) causes too much
+      overhead because it has to construct a new result matrix each time it is
+      called.
+
+
+   void storeInverse(const CWTSquareMatrix<T> &);
+
+      Stores the inverse of argument matrix in the destination matrix.  The
+      sizes of argument matrix and destination matrix should match.  This
+      function is provided for situations where using inv(qtn) causes too much
+      overhead because it has to construct a new result matrix each time it is
+      called.
+
+
+   void makeAdjoint();
+
+      Makes the destination matrix its own adjoint.  The original values in
+      the destination matrix are lost.
+
+
+   void makeInverse();
+
+      Makes the destination matrix its own inverse.  The original values in
+      the destination matrix are lost.
+
+
+   void makeUnity();
+
+      Makes the destination matrix a unity matrix.  The original values in the
+      destination matrix are lost.
+
+
+Operators
+
+   CWTSquareMatrix<T> operator +(const CWTSquareMatrix<T> &) const;
+
+      Square matrix addition.
+
+
+   CWTSquareMatrix<T> operator -(const CWTSquareMatrix<T> &) const;
+
+      Square matrix subtraction.
+
+
+   CWTSquareMatrix<T> operator -();
+
+      Changes sign of square matrix, i.e. changes sign of all elements.
+
+
+   CWTSquareMatrix<T> operator *(T val) const;
+
+      Square matrix "scalar" multiplication smat*val.
+
+
+   CWTSquareMatrix<T> operator *(const CWTSquareMatrix<T> &) const;
+
+      Square matrix multiplication.
+
+
+   CWTSquareMatrix<T> operator /(T val) const;
+
+      Square matrix "scalar" division.
+
+
+   CWTSquareMatrix operator /(const CWTSquareMatrix &smat2) const;
+
+      Square matrix division.  Performs smat1*inv(smat2).
+
+
+   CWTSquareMatrix<T> & operator =(const CWTSquareMatrix<T> &smat);
+
+      Square matrix assignment.  For details see CWTMatrix assignment.  (Not
+      inherited)
+
+
+   CWTSquareMatrix<T> & operator +=(const CWTSquareMatrix<T> &smat);
+
+      Compound addition and assignment.
+
+
+   CWTSquareMatrix<T> & operator -=(const CWTSquareMatrix<T> &smat);
+
+      Compound subtraction and assignment.
+
+
+   CWTSquareMatrix<T> & operator *=(T val);
+
+      Compound "scalar" multiplication and assignment smat*val.
+
+
+   CWTSquareMatrix<T> & operator *=(const CWTSquareMatrix<T> &);
+
+      Compound matrix multiplication and assignment.
+
+
+   CWTSquareMatrix<T> & operator /=(T val);
+
+      Compound "scalar" division and assignment.
+
+
+   CWTSquareMatrix & operator /=(const CWTSquareMatrix &);
+
+      Compound matrix division and assignment.
+
+
+Related Global Functions and Operators
+
+   CWTSquareMatrix<T> operator *(T val, const CWTSquareMatrix<T> &smat)
+
+      Square matrix "scalar" multiplication val*smat.
+
+
+   CWTSquareMatrix<T> transpose(const CWTSquareMatrix<T> &);
+
+      Returns a matrix that is the transpose of the argument matrix.
+
+
+   CWTSquareMatrix<T> adj(const CWTSquareMatrix<T> &);
+
+      Return a matrix that is the (classical) adjoint of the argument matrix.
+
+
+   CWTSquareMatrix<T> inv(const CWTSquareMatrix<T> &);
+
+      Returns a matrix that is the inverse of the argument matrix
+
+
+   T det(const CWTSquareMatrix<T> &);
+
+      Returns a the determinant of the argument matrix.
+
+
+   T tr(const CWTSquareMatrix<T> &);
+
+      Returns the trace of the argument matrix.
+
+
+==============================================================================
+template <class T = double> CWTVector
+
+Header file "vector.h"
+
+Description
+
+   Template class CWTVector provides a mathematical vector.  It provides most
+   of the vector operations that are used extensively in engineering and
+   science.  A vector is considered a matrix with many rows and just one
+   column.  The default element type for this template is double.
+
+
+Base Classes
+
+   public CWTMatrix<T>
+
+
+Public Constructors
+
+   CWTVector();
+
+      Default constructor.  Constructs a vector in N_NOTALLOCATED status, i.e.
+      it has no elements.
+
+
+   CWTVector(unsigned crowInit);
+
+      Constructs a vector in N_ALLOCATED status, i.e. it has crowInit elements.
+
+
+   CWTVector(const CWTMatrix<T> &mat);
+
+      Constructs a vector from a copy of a matrix.  See matrix copy
+      constructor for more details.
+
+      NOTE: The argument matrix should have only one column.
+
+
+   CWTVector(const CWTVector<T> &vec);
+
+      Copy constructor.  See matrix copy constructor for more details.
+
+
+   CWTVector(
+      const CWTMatrix<T> &mat,
+      unsigned irowStart,
+      unsigned icolStart,
+      unsigned irowEnd);
+
+      Constructs a vector in N_MAPPED status.  The resulting vector is mapped
+      into the argument matrix using element mat[irowStart][icolStart] as
+      starting point and runs down from there to row irowEnd along column
+      icolStart.
+
+
+   CWTVector(const CWTVector<T> &vec, unsigned irowStart, unsigned irowEnd);
+
+      Constructs a vector in N_MAPPED status.  The resulting vector is mapped
+      into the argument vector using element vec[irowStart] as starting point
+      and runs down from there to row irowEnd.
+
+
+Public Destructors
+
+   ~CWTVector() {};
+
+      Destroys a vector object.
+
+
+Public Member Functions
+
+   void mapInto(const CWTMatrix<T> &, unsigned, unsigned, unsigned);
+
+      Maps a vector into a matrix.  The resulting mapping is identical to the
+      result of the corresponding mapping constructor.  Deallocates existing
+      column first.
+
+
+   void mapInto(const CWTVector<T> &vec, unsigned irowStart, unsigned irowEnd);
+
+      Maps a vector into another vector.  The resulting mapping is identical
+      to the result of the corresponding mapping constructor.  Deallocates
+      existing column first.
+
+
+   void dimension(unsigned crowInit);
+
+      Allocates crowInit rows and one column.  Deallocates existing rows and
+      column first if neccesary.  If the vector has status N_MAPPED it does
+      *NOT* deallocate the rows and column of the matrix it is mapped into.
+
+      NOTE: Since CWTVector is derived from CWTMatrix,
+            CWTMatrix<T>::dimension(rows, cols) can be called for a CWTVector
+            as well, possibly creating a vector having more than one column!
+            This should be avoided since it can result in runtime errors.
+
+   void storeAtRow(unsigned irowStart, CWTVector<T> &vec);
+
+      Stores vector at the row in the destination vector vec indicated by
+      irowStart.
+
+
+   T norm() const;
+
+      Return the norm (absolute length) of a vector.
+
+
+   CWTVector<T> unit() const;
+
+      Returns a unit vector that has the same direction as the original vector
+      but its norm is scaled up/down to 1.
+
+
+   void makeUnit();
+
+      Makes the destination matrix its own unit vector.  The original values
+      in the destination matrix are lost.
+
+
+Operators
+
+   T & operator [](unsigned irow);
+
+      Subscript operator.  Returns the element at index irow of the vector.
+
+
+   const T & operator [](unsigned irow) const;
+
+      Subscript operator.  Returns the non-modifyable element at index irow
+      of the non-modifyable vector.
+
+
+   CWTVector<T> operator +(const CWTVector<T> &) const;
+
+      Vector addition.
+
+
+   CWTVector<T> operator -(const CWTVector<T> &) const;
+
+      Vector subtraction.
+
+
+   CWTVector<T> operator -() const;
+
+      Changes sign of vector, i.e. of all elements of the vector
+
+
+   CWTVector<T> operator *(T val) const;
+
+      Vector "scalar" multiplication vec*val.
+
+
+   T operator *(const CWTVector<T> &) const;
+
+      Vector inner product.
+
+
+   CWTVector<T> operator /(T val) const;
+
+      Vector "scalar" division vec/val.
+
+
+   CWTVector<T> & operator =(const CWTVector<T> &);
+
+      Vector assignment.  For details see CWTMatrix assignment.  (Not
+      inherited.)
+
+
+   CWTVector<T> & operator +=(const CWTVector<T> &);
+
+      Compound vector addition and assignment.
+
+
+   CWTVector<T> & operator -=(const CWTVector<T> &);
+
+      Compound vector subtraction and assignment.
+
+
+   CWTVector<T> & operator *=(T val);
+
+      Compound vector "scalar" multiplication and assignment.
+
+
+   CWTVector<T> & operator /=(T val);
+
+      Compound vector "scalar" division and assignment.
+
+
+   T operator !();
+
+      Returns vector norm (absolute size).
+
+
+Related Global Functions and Operators
+
+   CWTVector<T> operator *(T val, const CWTVector<T> &);
+
+      Vector "scalar" multiplication val*vec.
+
+
+   CWTVector<T> operator *(const CWTMatrix<T> &, const CWTVector<T> &);
+
+      Vector matrix multiplication mat*vec must yield a new vector.
+
+
+   T norm(const CWTVector<T> &vec)
+
+      Returns vector norm (absolute size).
+
+   CWTVector<T> sgn(const CWTVector<T> &vec)
+
+      Returns the sign of a vector i.e. a unit vector with the same direction.
+
+
+==============================================================================
+template <class T = double> CWTSpaceVector
+
+Header file "svector.h"
+
+Description
+
+   Class CWTSpaceVector provides a 3-dimensional vector which provides the
+   operations used often in engineering and science problems.  The default
+   element type for this template is double.
+
+
+Base Classes
+
+   public CWTVector<T>
+
+
+Public Constructors
+
+   CWTSpaceVector();
+
+      Default constructor.  Constructs a vector with three elements in one
+      column.
+
+
+   CWTSpaceVector(const CWTMatrix<T> &);
+
+      Constructs a space vector from a copy af a matrix.
+
+      NOTE: The matrix should have only one column with three elements.
+
+
+   CWTSpaceVector(const CWTVector<T> &);
+
+      Constructs a space vector from a copy af an ordinary vector.
+
+      NOTE: The matrix should have exactly three elements.
+
+
+   CWTSpaceVector(const CWTSpaceVector<T> &);
+
+      Constructs a copy of a space vector.  See matrix copy constructor for
+      more details.
+
+
+   CWTSpaceVector(T, T, T);
+
+      Constructs a space vector directly from 3 elements.
+
+
+   CWTSpaceVector(CWTMatrix<T> &mat, unsigned irowStart, unsigned icolStart);
+
+      Constructs a space vector in N_MAPPED status.  The resulting space
+      vector is mapped into the argument matrix from element
+      mat[irowStart][icolStart] to element mat[irowStart + 2][icolStart].
+
+
+   CWTSpaceVector(CWTVector<T> &vec, unsigned irowStart);
+
+      Constructs a space vector in N_MAPPED status.  The resulting space
+      vector is mapped into the argument vector from element vec[irowStart] to
+      element vec[irowStart + 2].
+
+
+Public Destructors
+
+   ~CWTSpaceVector();
+
+      Destroys a space vector object.
+
+
+Public Member Functions
+
+   void dimension();
+
+      Dimensions a space vector to have one column with three elements.
+
+      NOTE: Since CWTSpaceVector is derived from CWTVector and CWTVector in
+            turn is derived from CWTMatrix, CWTMatrix<T>::dimension(rows,
+            cols) and CWTVector<T>::dimension(rows) can be called for a
+            CWTSpaceVector as well, possibly creating a space vector having
+            more than one column and/or more than three elements! This should
+            be avoided since it can lead to run time errors.
+
+   void mapInto(const CWTMatrix<T> &mat,
+                unsigned irowStart,
+		unsigned icolStart);
+
+      Maps a space vector into a matrix.  The resulting mapping is identical
+      to the corresponding mapping constructor
+
+
+   void mapInto(const CWTVector<T> &vec, unsigned irowStart);
+
+      Maps a space vector into an ordinary vector.  The resulting mapping is
+      identical to the corresponding mapping constructor
+
+
+   void storeOuterProduct(const CWTSpaceVector<T> &,
+                          const CWTSpaceVector<T> &);
+
+      Stores the outer product of the two argument space vectors in the
+      destination space vector.  This function is provided for situations
+      where using operator%(qtn) causes too much overhead because it has to
+      construct a new result matrix each time it is called.
+
+
+   CWTSpaceVector<T> unit() const;
+
+      Returns a unit vector that has the same direction as the original space
+      vector but its norm is scaled up/down to 1.
+
+
+Operators
+
+   CWTSpaceVector<T> operator +(const CWTSpaceVector<T> &) const;
+
+      Space vector addition.
+
+
+   CWTSpaceVector<T> operator -(const CWTSpaceVector<T> &) const;
+
+      Space vector subtraction.
+
+
+   CWTSpaceVector<T> operator -() const;
+
+      Reverses the sign of every element in the space vector.
+
+
+   CWTSpaceVector<T> operator *(T val) const;
+
+      Space vector "scalar" multiplication svec*val
+
+
+   CWTSpaceVector<T> operator %(const CWTSpaceVector<T> &) const;
+
+      Space vector outer product.
+
+
+   CWTSpaceVector<T> operator /(T val) const;
+
+      Space vector "scalar" division.
+
+
+   CWTSpaceVector<T> & operator =(const CWTSpaceVector<T> &);
+
+      Space vector assignment.
+
+
+   CWTSpaceVector<T> & operator +=(const CWTSpaceVector<T> &);
+
+      Compound space vector addition and assignment.
+
+
+   CWTSpaceVector<T> & operator -=(const CWTSpaceVector<T> &);
+
+      Compound space vector subtraction and assignment.
+
+
+   CWTSpaceVector<T> & operator *=(T val);
+
+      Compound space vector "scalar" multiplication and assignment.
+
+
+   CWTSpaceVector<T> & operator %=(const CWTSpaceVector<T> &);
+
+      Compound space vector outer product and assignment.
+
+
+   CWTSpaceVector<T> & operator /=(T val);
+
+      Compound space vector "scalar" division and assignment.
+
+
+Related Global Functions and Operators
+
+   CWTSpaceVector<T> operator *(T val, const CWTSpaceVector<T> &svec);
+
+      Space vector "scalar" multiplication val*svec.
+
+
+   CWTSpaceVector<T> operator *(const CWTSquareMatrix<T> &,
+                                const CWTSpaceVector<T> &);
+
+      Space vector and square matrix multiplication smat*svec must yield a
+      space vector.
+
+   CWTSpaceVector<T> sgn(const CWTSpaceVector<T> &svec)
+
+      Returns the sign of a space vector i.e. a unit vector with the same
+      direction.
+
+==============================================================================
+template <class T = double> CWTQuaternion
+
+Header file "quatern.h"
+
+Description
+
+   Class CWTQuaternion is a 4-dimensional vector which provides the quaternion
+   operations used (not so often) in engineering and science problems
+   (e.g. for body attitude determination.  For more information on quaternions
+   and their applications, see: "Spacecraft attitude determination and
+   control", Edited by James Wertz, D. Reidel Publishing Company, Dordrecht:
+   Holland, Boston: U.S.A., London: England.  Or do a search on the internet
+   for quaternions.  There a lot of useful sites that explain quaternions
+   better that I could.
+
+
+Base Classes
+
+   public CWTVector<T>
+
+
+Public Constructors
+
+   CWTQuaternion();
+
+      Default constructor.  Constructs a vector with four elements in one
+      column.
+
+
+   CWTQuaternion(const CWTMatrix<T> &mat);
+
+      Constructs a quaternion from a copy of a matrix.
+
+      NOTE: The CWTMatrix should have one column with four elements.
+
+
+   CWTQuaternion(const CWTVector<T> &vec);
+
+      Constructs a quaternion from a copy of a vector.
+
+      NOTE: The vector should have four elements.
+
+
+   CWTQuaternion(const CWTQuaternion<T> &qtn);
+
+      Copy constructor.
+
+
+   CWTQuaternion(const CWTSpaceVector<T> &, T = 0);
+      Constructs a quaternion from a space vector and an optional real value.
+      The space vector will become the quaternion's imaginary part.  The real
+      value will become the quaternion's real part.
+
+
+   CWTQuaternion(T &, T &, T &, T &);
+
+      Constructs a quaternion directly from four real values.  The elements'
+      index runs from left to right, starting with 0.
+
+
+   CWTQuaternion(T &elemReal);
+
+      Constructs a quaternion from a scalar value.  Same as CWTQuaternion(0,
+      0, 0, elemReal).
+
+
+   CWTQuaternion(const CWTMatrix<T> &mat,
+                 unsigned irowStart,
+		 unsignedicolStart);
+
+      Contructs a quaternion in N_MAPPED status.  The resulting quaternion is
+      mapped into the argument matrix from element mat[irowStart][icolStart]
+      to element mat[irowStart + 3][icolStart].
+
+
+   CWTQuaternion(const CWTVector<T>& vec, unsigned irowStart);
+
+      Constructs a quaternion in N_MAPPED status.  The resulting quaternion is
+      mapped into the argument vector from element vec[irowStart] to element
+      vec[irowStart + 3].
+
+
+   CWTQuaternion(const T &r, const CWTSpaceVector<T> &svec, const T &angle);
+
+       Constructs a quaternion from its exponential form q = r * e^(n * theta)
+       where n is a three-dimensional (space) unit vector and theta an angle
+       in radians. r is equal to the absolute value of the quaternion.
+
+
+Pubblic Destructors
+-------------------
+   ~CWTQuaternion();
+
+      Destroys a quaternion object.
+
+
+Public Member Functions
+
+   void dimension();
+
+      Dimensions a quaternion to have one column with four elements.
+
+      NOTE: Since CWTQuaternion is derived from CWTVector and CWTVector in
+            turn is derived from CWTMatrix, CWTMatrix<T>::dimension(rows,
+            cols) and CWTVector<T>::dimension(rows) can be called for a
+            CWTQuaternion as well, possibly creating a quaternion having more
+            than four elements! This should be avoided since it can lead to
+            run time errors.
+
+
+   void mapInto(const CWTMatrix<T> &mat,
+                unsigned irowStart,
+		unsigned icolStart);
+
+      Maps a quaternion into a matrix.  The resulting mapping is identical to
+      the corresponding mapping constructor
+
+
+   void mapInto(const CWTVector<T> &vec, unsigned irowStart);
+
+      Maps a quaternion into an ordinary vector.  The resulting mapping is
+      identical to the corresponding mapping constructor
+
+
+   void storeProduct(const CWTQuaternion<T> &, CWTQuaternion<T> &);
+
+      Stores the product of the two argument quaternions in the destination
+      quaternion.  This function is provided for situations where using
+      operator*() causes too much overhead because it has to construct a new
+      result matrix each time it is called.
+
+
+   void storeConjugate(const CWTQuaternion<T> &);
+
+      Stores the conjugate of the argument quaternion in the destination
+      quaternion.  This function is provided for situations where using
+      conj(qtn) causes too much overhead because it has to construct a new
+      result matrix each time it is called.
+
+
+   void makeConjugate();
+
+      Makes this quaternion its own conjugate.  The original values in the
+      destination quaternion are lost.
+
+
+   CWTQuaternion<T> unit() const;
+
+      Returns a unit quaterion that has the same direction as the original
+      quaterion but its norm is scaled up/down to 1.
+
+
+Operators
+
+   CWTQuaternion<T> operator +(const CWTQuaternion<T> &) const;
+
+      Quaternion addition.
+
+
+   CWTQuaternion<T> operator -(const CWTQuaternion<T> &) const;
+
+      Quaternion subtraction.
+
+
+   CWTQuaternion<T> operator -() const;
+
+      Reverses sign of quaternion, i.e. all elements.
+
+
+   CWTQuaternion<T> operator *(T val) const;
+
+      Quaternion "scalar" multiplication.  quaternion*val.
+
+
+   CWTQuaternion<T> operator *(const CWTQuaternion<T> &) const;
+
+      Quaternion multiplication.
+
+
+   CWTQuaternion<T> operator /(T val) const;
+
+      Quaternion "scalar" division.
+
+
+   CWTQuaternion<T> operator /(const CWTQuaternion<T> &qtn2) const;
+
+      Quaternion division, performs qtn1*inv(qtn2).
+
+
+   CWTQuaternion<T> & operator =(const CWTQuaternion<T> &);
+
+      Quaternion assignment operator.  (Not inherited.)
+
+
+   CWTQuaternion<T> & operator =(const CWTSpaceVector<T> &);
+
+      Assigns value of space vector to quaternion imaginary part, quaternion
+      real part becomes zero.
+
+   CWTQuaternion<T> & operator +=(const CWTQuaternion<T> &);
+
+      Compound quaternion addition and assignment.
+
+
+   CWTQuaternion<T> & operator -=(const CWTQuaternion<T> &);
+
+      Compound quaternion subtraction and assignment.
+
+
+   CWTQuaternion<T> & operator *=(T val);
+
+      Compound quaternion "scalar" multiplication and assignment.
+
+
+   CWTQuaternion<T> & operator *=(const CWTQuaternion<T> &);
+
+      Compound quaternion multiplication and assignment.
+
+
+   CWTQuaternion<T> & operator /=(T val);
+
+      Compound quaternion "scalar" division and assignment.
+
+   CWTQuaternion<T> & operator /=(const CWTQuaternion<T> &);
+
+      Quaternion compound division.
+
+Related Global Functions and Operators
+--------------------------------------
+   CWTQuaternion<T> operator *(T value, CWTQuaternion<T> &qtn)
+
+      Quaternion "scalar" multiplication val*quaternion.
+
+   ELEM re(const CWTQuaternion<T> &qtn);
+
+      Returns real part of a quaternion.
+
+
+   CWTSpaceVector<T> im(const CWTQuaternion<T> &);
+
+      Returns imaginary (vector) part of a quaternion.
+
+
+   CWTQuaternion<T> conj(const CWTQuaternion<T> &qtn);
+
+      Returns the conjugate of a quaternion.
+
+
+   CWTQuaternion<T> inv(const CWTQuaternion<T> &qtn)
+
+      Returns the inverse of a quaternion calculated as: conj(qtn)/norm(qtn).
+
+   CWTQuaternion<T> sgn(const CWTQuaternion<T> &qtn)
+
+      Returns the sign of a quaternion i.e. a unit quaternion with the same
+      direction.
+
+   T arg(const CWTQuaternion<T> &qtn)
+
+      Returns the argument of a quternion.
+
+   CWTQuaternion<T> exp(const CWTQuaternion<T> &qtn)
+
+      Quaternion exponentiation. Returns e^qtn.
+
+   CWTQuaternion<T> log(const CWTQuaternion<T> &qtn)
+
+      Quaternion logarithm. Returns log(qtn).
+
+   CWTQuaternion<T> pow(const CWTQuaternion<T> &qtn1,
+                         const CWTQuaternion<T> &qtn2)
+
+      Quaternion power! Returns qtn1^qtn2
+
+
+==============================================================================
+Header File "coordsys.h"
+
+Description
+
+   Contains utility functions related to coordinate transformations.
+
+
+Global Functions
+
+   CWTSquareMatrix<T> smatFromEuler321(T sclrAbout3,
+                                       T sclrAbout2,
+				       T sclrAbout1);
+
+      Returns a transformation matrix which transforms coordinates from a
+      reference axis system to coordinates in an axis system with Euler angles:
+      sclrAbout3, sclrAbout2, sclrAbout1 relative to
+      that reference axis system.
+
+      NOTE: The rotations from the reference axis system to the new attitude
+            will be carried out in the sequence: 3-2-1.  I.e. first around the
+            Z-axis, next around the Y-axis and finally around the X-axis.
+            Hence the order of the arguments sclrAbout3, sclrAbout2,
+            sclrAbout1 and the name of this function.  Sometimes another
+            rotation sequence is used e.g. 2-3-2.  So always make sure you use
+            the correct sequencing.  CwMtx only supports the 3-2-1 sequence.
+
+      NOTE: sclrAbout1 = rotation about X-axis (roll angle).
+            sclrAbout2 = rotation about Y-axis (pitch angle).
+            sclrAbout3 = rotation about Z-axis (yaw angle).
+
+
+   T euler321Angle1FromSmat(const CWTSquareMatrix<T> &smat);
+
+      Calculates rotation angle about X-axis (roll angle) from transformation
+      matrix.  Calculated as: atan2(smat[1][2], smat[2][2]).  Returns values in
+      the interval [-pi, pi].
+
+
+   T euler321Angle2FromSmat(const CWTSquareMatrix<T> &smat);
+
+      Calculates rotation angle about Y-axis (pitch angle) from transformation
+      matrix.  Calculated as: asin(-smat[0][2]).  Returns values in the
+      interval [-pi/2, pi/2].
+
+
+   T euler321Angle3FromSmat(const CWTSquareMatrix<T> &smat);
+
+      Calculates rotation angle about Z-axis (yaw angle) from transformation
+      matrix.  Calculated as: atan2(smat[0][1], smat[0][0]).  Returns values
+      in the interval [-pi, pi].
+
+
+   T euler321Angle1FromQtn(const CWTQuaternion<T> &qtn);
+
+      Calculates rotation angle about X-axis (roll angle) from attitude
+      quaternion.  Calculated as:
+
+      atan2(2*(qtn[1]*qtn[2] + qtn[0]*qtn[3]),
+               -qtn[0]*qtn[0] - qtn[1]*qtn[1] + qtn[2]*qtn[2] + qtn[3]*qtn[3])
+
+      Returns values in the interval [-pi, pi].
+
+
+   T euler321Angle2FromQtn(const CWTQuaternion<T> &qtn);
+
+      Calculates rotation angle about Y-axis (pitch angle) from transformation
+      matrix.  Calculated as: 
+
+      asin(-2*(qtn[0]*qtn[2] - qtn[1]*qtn[3])).
+
+      Returns values in the interval [-pi/2, pi/2].
+
+
+   T euler321Angle3FromQtn(const CWTQuaternion<T> &qtn);
+
+      Calculates rotation angle about Z-axis (yaw angle) from transformation
+      matrix.  Calculated as:
+
+      atan2(2*(qtn[0]*qtn[1] + qtn[2]*qtn[3]),
+               qtn[0]*qtn[0] - qtn[1]*qtn[1] - qtn[2]*qtn[2] + qtn[3]*qtn[3]).
+
+      Returns values in the interval [-pi, pi].
+
+
+   CWTQuaternion<T> qtnFromEulerAxisAndAngle(const CWTSpaceVector<T> &svecAxis,
+                                             T ang);
+
+      Returns a quaternion representing a rigid body's attitude from its Euler
+      axis and angle representation.
+
+
+   CWTSpaceVector<T> eulerAxisFromQtn(const CWTQuaternion<T> &);
+
+      Returns Euler axis from a quaternion representing a rigid body's
+      attitude.
+
+
+   T eulerAngleFromQtn(const CWTQuaternion<T> &);
+
+      Returns Euler angle from a quaternion representing a rigid body's
+      attitude.
+
+
+   CWTQuaternion<T> qtnFromEuler321Angles(T sclrAbout3,
+                                          T sclrAbout2,
+					  T sclrAbout1);
+
+      Returns a quaternion representing a rigid body's attitude.  The
+      quaternion elements correspond to the Euler symmetric parameters of the
+      body.  The body's attitude must be entered in Euler angle representation
+      with rotation order 3-2-1, i.e. first about Z-axis next about rotated
+      Y-axis and finally about rotated X-axis (yaw - pitch - roll sequence).
+
+
+   CWTSquareMatrix<T> smatFromQtn(const CWTQuaternion<T> &);
+
+      Returns the transformation matrix corresponding to a quaternion
+      representing a rigid body's attitude.
+
+
+   CWTQuaternion<T> qtnFromSmat(const CWTSquareMatrix<T> &);
+
+      Returns the quaternion corresponding to a transformation matrix.
+
+
+   CWTVector<T> axisAngleFromQtn( const CWTQuaternion<T> &qtn );
+
+      Returns the euler axis corresponding to a quaternion.
+
+      NOTE: This function duplicates eulerAxisFromQtn(qtn) it only has a
+      different return type.
+
+
+   CWTQuaternion<T> qtnFromAxisAngle( const CWTVector<T> &vAxis,
+				      const T sAngle );
+
+      Returns the quaternion corresponding to the a euler axis and angle pair.
+
+      NOTE: This function duplicates qtnFromEulerAxisAndAngle(..) it only has
+      a different function profile.
+
+   CWTSquareMatrix<T> changeOfBasis(CWTSpaceVector< CWTSpaceVector<T> >&from,
+                                    CWTSpaceVector< CWTSpaceVector<T> >&to)
+
+      Returns the transformation matrix that transforms coordinated from the
+      "from" axis system to the "to" axis system.  The arguments of type
+      CWTSpaceVector< CWTSpaceVector<T> > contain the unit vectors that
+      represent the X, Y and Z-axis of the "from" and "to" axis systems
+      respectively.
+
+
+Local Variables:
+mode: text
+fill-column: 78
+End:

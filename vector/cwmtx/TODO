@@ -1,0 +1,21 @@
+$Id: TODO 165 2008-01-19 19:53:19Z hkuiper $
+----------------------------------------------------------------------------
+
+* Write a tutorial.
+
+* Further optimisation for speed.
+
+* Implement a better matrix inversion algorithm (one that is faster and uses
+  less resources)
+
+* Add capability to aggregate smaller matrices into a new large matrix in
+  addition to the current mapping feature which maps smaller matrices into an
+  already existing larger matrix.
+
+* Keep improving the test program.
+
+
+Local Variables:
+mode: text
+fill-column: 78
+End:
